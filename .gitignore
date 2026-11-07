@@ -1,0 +1,5 @@
+# 编译产物（install.sh 会自动生成）
+bin/vellum-ocr
+bin/Vellum.app/
+__pycache__/
+.DS_Store

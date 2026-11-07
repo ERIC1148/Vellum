@@ -1,0 +1,13 @@
+#!/bin/sh
+# vellum 命令入口。用系统 Python 3.9；依赖 opencv-python-headless、numpy、Pillow 装在用户级（install.sh 会检查）。
+# 通过 ~/.local/bin/vellum 这个软链接调用时，先解析出真实位置。
+SELF="$0"
+while [ -L "$SELF" ]; do
+  LINK="$(readlink "$SELF")"
+  case "$LINK" in
+    /*) SELF="$LINK" ;;
+    *) SELF="$(dirname "$SELF")/$LINK" ;;
+  esac
+done
+DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+exec /usr/bin/python3 "$DIR/vellum.py" "$@"
