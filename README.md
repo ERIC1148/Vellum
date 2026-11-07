@@ -137,45 +137,23 @@ Vellum 只专心做一件事：把照片变成清晰、规整、干净的扫描�
 
 ## 技术细节
 
-Vellum 的处理流程分为以下几个阶段：
-
 ```
-detect ─▶ refine ─▶ rectify ─▶ flatten ─▶ enhance ─▶ ocr ─▶ export
+找边 → 精修 → 矫正 → 拉平 → 增强 → 识别 → 导出
 ```
 
-| 阶段 | 做法 |
-|---|---|
-| detect | 用四种区域掩码和亮度、色度两路 Canny 边缘生成候选四边形，再按“边缘色差（设上限）× 面积平方根”打分，选出最像纸张的那一个。 |
-| refine | 回到原图分辨率，沿每条边的法线采集 Lab 颜色剖面，定位到亚像素，再用 Huber 稳健拟合求出直线和交点。 |
-| rectify | 用 Zhang–He 闭式解反推相机焦距和纸张的真实宽高比，再按内容吸附到标准比例。 |
-| flatten | 普通模式从文字行和长横线拟合二维位移场（12 项多项式加逐行斜率网格，使用 IRLS）。书页模式改用三维三次曲面 z(u)=(α+β)u³−(2α+β)u²+αu 和针孔相机模型，用 SciPy `least_squares`（稀疏雅可比、soft-L1 损失）求解，再沿弧长展开。两种方式都和透视矫正合成一次重映射。 |
-| enhance | 用形态学估计纸张底色并相除，用 MAD 估计白点，按局部抬升黑点来加深浅笔迹，用开运算填实空心笔画，最后清理污点和残边。 |
-| notes | 把墨迹分成中性色和彩色两组，分别在 Lab 空间中做 k-means 聚类；调色板会加饱和、拉开深浅，索引色按 1、2 或 4 位打包。 |
-| ocr | 调用 macOS Vision 识别文字（`tools/ocr.swift`），再按阅读顺序排列。 |
-| export | 自己实现的 PDF 写入器：JPEG 原样嵌入，索引色和 1 位图像使用 Flate 压缩，文字层使用 Type0 字体和 fontTools 生成的无字形字体。 |
-| app | 窗口使用 SwiftUI 和液态玻璃（`tools/review.swift`），界面图标是 SVG 模板图（`assets/icons/`）；图像处理通过 `vellum.py` 的 `--inspect` 和 `--plan` 完成。 |
+- **找边与矫正**：多路候选找出纸张四边形，在原图上精修到亚像素，再还原真实宽高比。
+- **拉平**：用文字行和横线拟合位移场；书页模式改用三维曲面模型，沿曲面展开。
+- **增强**：估计纸张底色并相除去阴影，再加深笔迹、清理污点。
+- **识别与导出**：文字识别使用 macOS Vision；PDF 由 Vellum 自己写入，图片不二次压缩。
+- **窗口**：SwiftUI 与液态玻璃，图像处理交给 `vellum.py`。
 
-### 借鉴的开源项目
+### 致谢
 
-Vellum 站在许多开源项目的肩膀上，在此向它们致谢。
-
-| 项目 | 借鉴了什么 |
-|---|---|
-| [andrewdcampbell/OpenCV-Document-Scanner](https://github.com/andrewdcampbell/OpenCV-Document-Scanner) | 多候选找边，以及手动调整角点的思路。 |
-| [neempata/document-scanner](https://github.com/neempata/document-scanner)、ClearPDF Local | 用背景相除去除阴影，以及按场景划分处理模式。 |
-| 微软 *Whiteboard It*（Zhang 与 He） | 从透视中还原真实宽高比的方法。 |
-| [mzucker/page_dewarp](https://github.com/mzucker/page_dewarp) | 用三维三次曲面描述书页弯曲的模型。 |
-| [mzucker/noteshrink](https://github.com/mzucker/noteshrink) | 调色板压缩的思路。 |
-| [ScanTailor Advanced](https://github.com/4lex4/scantailor-advanced) | 纠正倾斜和清除污点的做法。 |
-| OCRmyPDF / Tesseract | 在 PDF 中叠加透明文字层的做法。 |
+Vellum 借鉴了这些开源项目的思路：[OpenCV-Document-Scanner](https://github.com/andrewdcampbell/OpenCV-Document-Scanner)、[page_dewarp](https://github.com/mzucker/page_dewarp)、[noteshrink](https://github.com/mzucker/noteshrink)、[ScanTailor Advanced](https://github.com/4lex4/scantailor-advanced) 和 [OCRmyPDF](https://github.com/ocrmypdf/OCRmyPDF)，以及微软研究院的论文 *Whiteboard It*。
 
 ### 体积
 
-| 组成部分 | 大小 |
-|---|---|
-| Vellum 本体（脚本、窗口、识别引擎和图标） | 约 2.6 MB |
-| OpenCV、NumPy、Pillow 和 fontTools | 约 165 MB |
-| SciPy（只有书页展平会用到，并且按需加载） | 约 91 MB |
+Vellum 本体约 2.6 MB。依赖库约 256 MB，其中 SciPy（约 91 MB）只在书页展平时按需加载。
 
 ## 已知限制
 
@@ -187,18 +165,11 @@ Vellum 站在许多开源项目的肩膀上，在此向它们致谢。
 ## 文件结构
 
 ```
-vellum/
-├── vellum.py                 全部图像算法与命令行
-├── bin/vellum                命令入口
-├── bin/vellum-ocr            文字识别引擎（自动编译，不纳入 git）
-├── bin/Vellum.app            Vellum 窗口（自动编译，不纳入 git）
-├── tools/review.swift        窗口源码（SwiftUI 与液态玻璃）
-├── tools/ocr.swift           文字识别引擎源码（Vision）
-├── tools/make_quick_actions.py
-├── assets/icon.svg           应用图标
-├── assets/icons/*.svg        界面图标（24 像素模板图）
-├── tests/test_synthetic.py
-└── install.sh
+vellum.py        图像算法与命令行
+tools/           窗口、文字识别引擎和快速操作的源码
+assets/          应用图标和界面图标
+tests/           合成测试
+install.sh       安装与卸载
 ```
 
 ## 后记
