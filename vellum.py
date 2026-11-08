@@ -1960,7 +1960,7 @@ def main(argv=None):
         log(f"✗ vellum：{e}")
         if args.notify:
             # 通知里只显示文件名，不显示完整路径
-            short = re.sub(r"(?<![\w.])/(?:[^/：:，,]+/)+[^/：:，,]*", lambda m: os.path.basename(m.group(0)), str(e))
+            short = re.sub(r"(?<![\w.])/(?:[^/\s：:，,][^/：:，,]*/)+[^/\s：:，,][^/：:，,]*", lambda m: os.path.basename(m.group(0)), str(e))
             notify("无法完成扫描", f"{short}。".replace("。。", "。"))
         return 2
     except Exception as e:  # 给“快速操作”一个看得见的错误
