@@ -6,7 +6,7 @@
 // 底部：液态玻璃工具栏（模式、墨色、书页展平、旋转、四角、导出）。
 // 图像处理全部交给 vellum.py：--inspect 取四角和模式，--plan 渲染预览、导出 PDF/图片、识别文字。
 //
-// 编译：vellum.py 首次使用时自动 swiftc -O -swift-version 5 review.swift，并打包成 bin/Vellum.app
+// 编译：vellum.py 首次使用时自动 swiftc -O -swift-version 5 review.swift，并打包成 ~/Applications/Vellum.app
 
 import AppKit
 import SwiftUI
@@ -16,6 +16,9 @@ import UserNotifications
 // MARK: - 路径与图标
 
 let toolDir: URL = {
+    // 装在“应用程序”里时，Info.plist 记着 vellum.py 所在的文件夹
+    if let root = Bundle.main.object(forInfoDictionaryKey: "VellumRoot") as? String,
+       FileManager.default.fileExists(atPath: root + "/vellum.py") { return URL(fileURLWithPath: root) }
     let exe = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
     var dir = exe.resolvingSymlinksInPath().deletingLastPathComponent()
     for _ in 0..<6 {

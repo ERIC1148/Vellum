@@ -1512,7 +1512,8 @@ OCR_SRC = os.path.join(HERE, "tools", "ocr.swift")
 DEFAULT_LANGS = "zh-Hans,zh-Hant,en-US"
 
 
-REVIEW_APP = os.path.join(HERE, "bin", "Vellum.app")
+# 放在 ~/Applications，启动台和聚焦都能找到；只有一份，命令行和快速操作也用它
+REVIEW_APP = os.path.expanduser("~/Applications/Vellum.app")
 REVIEW_SRC = os.path.join(HERE, "tools", "review.swift")
 APP_ID = "local.mactoolkit.vellum"
 
@@ -1574,8 +1575,11 @@ def review_app():
             plistlib.dump({"CFBundleIdentifier": APP_ID, "CFBundleName": "Vellum", "CFBundleDisplayName": "Vellum",
                            "CFBundleExecutable": "Vellum", "CFBundlePackageType": "APPL",
                            "CFBundleShortVersionString": VERSION, "LSMinimumSystemVersion": "26.0",
-                           "NSHighResolutionCapable": True, "CFBundleIconFile": "Vellum"}, fh)
+                           "NSHighResolutionCapable": True, "CFBundleIconFile": "Vellum",
+                           "LSApplicationCategoryType": "public.app-category.productivity", "VellumRoot": HERE}, fh)
         subprocess.run(["codesign", "-s", "-", "--force", REVIEW_APP], capture_output=True)
+        subprocess.run(["/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/"
+                        "Support/lsregister", "-f", REVIEW_APP], capture_output=True)
     return REVIEW_APP
 
 

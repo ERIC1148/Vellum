@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <!-- Vellum app icon · 当代 macOS 原生图标风格：分层液态玻璃
-       1024 画布 / 824 主体 / 连续圆角；背景层取访达的配色：天蓝到湛蓝，
+       1024 画布 / 824 主体 / 连续圆角；主体外不画阴影和描边（否则 macOS 26 会把图标装进白色底板）；背景层取访达的配色：天蓝到湛蓝，
        前景是一张磨砂玻璃纸 + 一副玻璃取景角，顶部受光、边缘高光、底部内阴影 -->
   <defs>
     <!-- 背景：访达蓝渐变 + 顶部柔光 -->
@@ -37,19 +37,14 @@
     <filter id="soft" x="-20%" y="-20%" width="140%" height="150%">
       <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0B3A8C" flood-opacity="0.30"/>
     </filter>
-    <filter id="iconShadow" x="-10%" y="-10%" width="120%" height="125%">
-      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.25"/>
-    </filter>
     <clipPath id="body"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
   </defs>
 
   <!-- 背景层 -->
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" filter="url(#iconShadow)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
   <g clip-path="url(#body)">
     <rect x="100" y="100" width="824" height="824" fill="url(#bgGlow)"/>
   </g>
-  <!-- 外轮廓玻璃高光 -->
-  <rect x="102" y="102" width="820" height="820" rx="183" fill="none" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="4"/>
 
   <!-- 前景层 1：磨砂玻璃纸 -->
   <g filter="url(#lift)">

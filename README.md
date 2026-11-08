@@ -39,7 +39,7 @@ sh install.sh
 
 安装后请保留这个文件夹，`vellum` 命令和访达快速操作都会从这里运行。
 
-Vellum 需要 macOS 26 或更高版本，以及 Xcode 命令行工具（提供 `swiftc`，可用 `xcode-select --install` 安装）。安装程序会检查依赖、编译文字识别引擎和 Vellum.app，并在访达中加入两个快速操作。如果想卸载，运行 `sh install.sh --uninstall` 即可。
+Vellum 需要 macOS 26 或更高版本，以及 Xcode 命令行工具（提供 `swiftc`，可用 `xcode-select --install` 安装）。安装程序会检查依赖、编译文字识别引擎和 Vellum.app，把 Vellum.app 放进“应用程序”文件夹（可以从启动台打开），并在访达中加入两个快速操作。如果想卸载，运行 `sh install.sh --uninstall` 即可。
 
 ### 在访达中
 

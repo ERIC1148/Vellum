@@ -2,7 +2,7 @@
 # Vellum installer · 依赖检查 → 编译 OCR 引擎 → 链接命令 → 访达快速操作
 #   sh install.sh               安装 / 升级
 #   sh install.sh --uninstall   卸载
-# 只写用户目录（~/.local/bin、~/Library/Services），不需要 sudo。
+# 只写用户目录（~/.local/bin、~/Library/Services、~/Applications），不需要 sudo。
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 BIN="$HOME/.local/bin/vellum"
@@ -20,6 +20,7 @@ remove_actions() {
 if [ "$1" = "--uninstall" ]; then
   rm -f "$BIN" "$HOME/.local/bin/docscan"
   remove_actions
+  rm -rf "$HOME/Applications/Vellum.app"
   /System/Library/CoreServices/pbs -update 2>/dev/null || true
   echo "✓ Vellum 已卸载（日志 ~/Library/Logs/vellum.log 保留）"
   exit 0
@@ -43,7 +44,8 @@ else
   echo "        ⚠ 没有 swiftc，OCR 不可用。装 Xcode 命令行工具后重跑：xcode-select --install"
 fi
 
-echo "▸ [3/5] 检查窗口 Vellum.app（SwiftUI · Liquid Glass）"
+echo "▸ [3/5] Vellum.app → ~/Applications（启动台可打开）"
+rm -rf "$DIR/bin/Vellum.app"   # 旧版本放在 bin/ 里
 if command -v swiftc >/dev/null 2>&1; then
   APP=$(/usr/bin/python3 -c "import sys; sys.path.insert(0, '$DIR'); import vellum; print(vellum.review_app() or '')" 2>&1 | tail -1)
   echo "        ✓ $APP"
