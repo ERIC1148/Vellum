@@ -10,6 +10,7 @@
 
 import AppKit
 import SwiftUI
+import Combine
 import UniformTypeIdentifiers
 import UserNotifications
 
@@ -789,8 +790,7 @@ struct ContentView: View {
                         Button("添加页面…", action: m.addPages).buttonStyle(.glassProminent).controlSize(.large)
                     }
                 }
-                .padding(36)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+                .padding(.top, 20)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             if m.dropTargeted {
@@ -800,7 +800,7 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
-        .frame(minWidth: 1180, minHeight: 720)
+        .frame(minWidth: m.page == nil ? 440 : 1180, minHeight: m.page == nil ? 300 : 720)
         .onDrop(of: [.fileURL], isTargeted: Binding(get: { m.dropTargeted }, set: { m.dropTargeted = $0 })) { providers in
             var urls: [String] = []
             let group = DispatchGroup()
@@ -893,15 +893,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
+    var pagesSink: AnyCancellable?
+
     func showWindow() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 920),
+        // 没有页面时只是一个小窗口；加入照片后再展开成完整的编辑窗口
+        let size = files.isEmpty ? NSSize(width: 440, height: 300) : NSSize(width: 1440, height: 920)
+        window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         window.title = "Vellum"
         window.subtitle = files.count == 1 ? URL(fileURLWithPath: files[0]).lastPathComponent : "扫描并调整"
         window.titlebarAppearsTransparent = true
         window.contentView = NSHostingView(rootView: ContentView(m: model))
-        window.setFrameAutosaveName("vellum.review")
+        pagesSink = model.$pages.receive(on: DispatchQueue.main).sink { [weak self] pages in
+            guard let w = self?.window, !pages.isEmpty, w.frame.width < 1000 else { return }
+            let vis = w.screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 920)
+            let sz = NSSize(width: min(1440, vis.width), height: min(920, vis.height))
+            let f = NSRect(x: vis.midX - sz.width / 2, y: vis.midY - sz.height / 2, width: sz.width, height: sz.height)
+            DispatchQueue.main.async { w.setFrame(f, display: true, animate: true) }
+        }
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
