@@ -1698,7 +1698,18 @@ def expand_inputs(items):
     return files
 
 
-def notify(title, msg):
+def notify(title, msg, open_path=None):
+    """系统通知：由 Vellum.app 发出，带 Vellum 的图标和名称；点按通知会打开 open_path。
+    App 不可用时退回 osascript（那样图标会是“脚本编辑器”）。"""
+    exe = os.path.join(REVIEW_APP, "Contents", "MacOS", "Vellum")
+    if os.path.exists(exe):
+        cmd = [exe, "--notify", title, msg] + (["--open", os.path.abspath(open_path)] if open_path else [])
+        try:
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            return
+        except OSError:
+            pass
+
     def q(s):
         return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
     subprocess.run(["osascript", "-e", f"display notification {q(msg)} with title {q(title)}"], capture_output=True)
@@ -1822,7 +1833,7 @@ def main(argv=None):
         if args.review_if_unsure and any(detect_page(load_image(f))[0] is None for f in files):
             log("◇ 有页面没找到边缘 → 打开检查窗口")
             if args.notify:
-                notify("Vellum", "有页面没找到边缘，请在窗口里拖一下四角")
+                notify("需要确认页面范围", "有页面未识别到纸张边缘，请在 Vellum 中调整。")
             launch_review(files)
         fmt = args.format
         if args.output:
@@ -1929,11 +1940,17 @@ def main(argv=None):
         log(f"⏱ {time.time() - t_all:.1f}s")
         if args.notify:
             if args.text_only:
-                msg = f"已复制 {len(full_text)} 字到剪贴板" if args.copy else f"识别出 {len(full_text)} 字"
-                notify("Vellum · 提取文字", ("✓ " + msg) if texts else "没有识别出文字")
+                if texts and full_text.strip():
+                    if args.copy:
+                        notify("文字已拷贝", f"已将 {len(full_text)} 个字拷贝到剪贴板。")
+                    else:
+                        notify("文字识别完成", f"共识别出 {len(full_text)} 个字。")
+                else:
+                    notify("未识别到文字", "这些页面中没有可识别的文字。")
             else:
-                tag = " · 可搜索" if ocr else ""
-                notify("Vellum · 扫描完成", f"✓ {os.path.basename(saved[0])} · {len(scans)} 页{tag}")
+                extra = "，可搜索" if ocr and saved[0].lower().endswith(".pdf") else ""
+                what = f"“{os.path.basename(saved[0])}”已保存" if len(saved) == 1 else f"{len(saved)} 个文件已保存"
+                notify("扫描完成", f"{what}，共 {len(scans)} 页{extra}。", open_path=saved[0])
         if args.open and saved:
             pdfs = [s for s in saved if not s.endswith(".txt")]
             target = pdfs or saved
@@ -1942,11 +1959,13 @@ def main(argv=None):
     except ScanError as e:
         log(f"✗ vellum：{e}")
         if args.notify:
-            notify("Vellum · 失败", str(e))
+            # 通知里只显示文件名，不显示完整路径
+            short = re.sub(r"(/[^\s：:，,]+)+/", "", str(e))
+            notify("无法完成扫描", f"{short}。".replace("。。", "。"))
         return 2
     except Exception as e:  # 给“快速操作”一个看得见的错误
         if args.notify:
-            notify("Vellum · 失败", f"{type(e).__name__}: {e}")
+            notify("无法完成扫描", f"发生意外错误（{type(e).__name__}），详情见日志。")
         raise
 
 

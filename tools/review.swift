@@ -11,6 +11,7 @@
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
+import UserNotifications
 
 // MARK: - 路径与图标
 
@@ -824,14 +825,72 @@ struct ContentView: View {
 
 // MARK: - 启动
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+/// 点按通知：打开通知里带的文件（导出的 PDF / 图片）
+func openFromNotification(_ response: UNNotificationResponse) {
+    if let path = response.notification.request.content.userInfo["open"] as? String {
+        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+    }
+}
+
+/// 通知模式：`Vellum --notify 标题 正文 [--open 路径]`。由 vellum.py 调用，以 Vellum 的名义和图标发系统通知，发完即退出。
+final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    let title: String, body: String, open: String?
+    init(title: String, body: String, open: String?) { self.title = title; self.body = body; self.open = open }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { DispatchQueue.main.async { NSApp.terminate(nil) }; return }
+            let content = UNMutableNotificationContent()
+            content.title = self.title
+            content.body = self.body
+            content.sound = .default
+            if let o = self.open { content.userInfo = ["open": o] }
+            center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)) { _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+            }
+        }
+        // 兜底：最多停留 90 秒（首次会等用户在系统弹窗里允许通知）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 90) { NSApp.terminate(nil) }
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        openFromNotification(response)
+        completionHandler()
+    }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     let model = Model()
     let files: [String]
     var window: NSWindow!
+    var handledNotification = false
 
     init(files: [String]) { self.files = files }
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if files.isEmpty {
+            // 可能是点按通知把 App 拉起来的：稍等一下，确认不是再开空窗口
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                if !self.handledNotification { self.showWindow() }
+            }
+        } else {
+            showWindow()
+        }
+    }
+
+    func showWindow() {
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 920),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
@@ -846,12 +905,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if files.isEmpty { model.refreshStatus() } else { model.load(files) }
     }
 
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        handledNotification = true
+        openFromNotification(response)
+        completionHandler()
+        if window == nil { NSApp.terminate(nil) }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationWillTerminate(_ notification: Notification) { model.cleanup() }
 }
 
-let files = Array(CommandLine.arguments.dropFirst()).filter { !$0.hasPrefix("-psn") }
+let args = Array(CommandLine.arguments.dropFirst()).filter { !$0.hasPrefix("-psn") }
 let app = NSApplication.shared
+
+if let i = args.firstIndex(of: "--notify"), args.count > i + 2 {
+    let open = args.firstIndex(of: "--open").flatMap { args.count > $0 + 1 ? args[$0 + 1] : nil }
+    app.setActivationPolicy(.accessory)  // 不出现在程序坞
+    let notifier = Notifier(title: args[i + 1], body: args[i + 2], open: open)
+    app.delegate = notifier
+    app.run()
+    exit(0)
+}
+
+let files = args
 app.setActivationPolicy(.regular)
 let mainMenu = NSMenu()
 let appItem = NSMenuItem()
